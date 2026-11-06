@@ -30,6 +30,6 @@ A `subject_type` and `subject_id` pair on `notifications` would allow only one d
 - **A short window.** The notification row exists for a moment before its links do. A notification read in that window, or a dependency deleted on another connection at the same time, is not covered by a transaction across both.
 - **SQLite** enforces the cascade only with `foreign_key_constraints` enabled on the connection. The package deletes links explicitly when it deletes notifications itself.
 
-:::warning Laravel 8
-Laravel 8 no longer receives security fixes upstream. Plan an upgrade to a supported Laravel line.
+:::warning Laravel 9
+Laravel 9 no longer receives security fixes upstream. Plan an upgrade to a supported Laravel line.
 :::
