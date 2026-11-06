@@ -1,0 +1,19 @@
+- Getting Started
+  - [Overview](#overview)
+  - [Installation](#installation)
+  - [Configuration](#configuration)
+- Usage
+  - [Basic Usage](#basic-usage)
+  - [Declaring Dependencies](#declaring-dependencies)
+  - [Dependable Models](#dependable-models)
+  - [Soft Deletes](#soft-deletes)
+  - [Queued Notifications](#queued-notifications)
+- API Reference
+  - [NotificationDependency Model](#notification-dependency-model)
+  - [API Reference](#api-reference)
+  - [How It Works](#how-it-works)
+- Examples
+  - [Use Cases](#examples)
+  - [Troubleshooting](#troubleshooting)
+- Community
+  - [Contributors](#contributors)
