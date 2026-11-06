@@ -50,6 +50,8 @@ abstract class TestCase extends Orchestra
             'queue' => 'default',
             'retry_after' => 90,
         ]);
+        // Laravel 8+ defaults to database-uuids, which needs a uuid column.
+        $app['config']->set('queue.failed.driver', 'database');
         $app['config']->set('queue.failed.database', 'testing');
         $app['config']->set('mail.driver', 'array');
     }
