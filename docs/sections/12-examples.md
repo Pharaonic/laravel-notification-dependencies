@@ -6,8 +6,8 @@ A customer is notified of each new comment on their order. The notification goes
 
 - ===Models
 
-  ```php title="app/Order.php"
-  namespace App;
+  ```php title="app/Models/Order.php"
+  namespace App\Models;
 
   use Illuminate\Database\Eloquent\Model;
   use Pharaonic\Laravel\NotificationDependencies\Concerns\HasDependentNotifications;
@@ -28,8 +28,8 @@ A customer is notified of each new comment on their order. The notification goes
   }
   ```
 
-  ```php title="app/Comment.php"
-  namespace App;
+  ```php title="app/Models/Comment.php"
+  namespace App\Models;
 
   use Illuminate\Database\Eloquent\Model;
   use Pharaonic\Laravel\NotificationDependencies\Concerns\HasDependentNotifications;
@@ -45,8 +45,8 @@ A customer is notified of each new comment on their order. The notification goes
   ```php title="app/Notifications/OrderCommented.php"
   namespace App\Notifications;
 
-  use App\Comment;
-  use App\Order;
+  use App\Models\Comment;
+  use App\Models\Order;
   use Illuminate\Notifications\Notification;
   use Pharaonic\Laravel\NotificationDependencies\Concerns\HasDependencies;
 
@@ -91,9 +91,9 @@ A customer is notified of each new comment on their order. The notification goes
   ```php title="app/Http/Controllers/OrderCommentController.php"
   namespace App\Http\Controllers;
 
-  use App\Comment;
+  use App\Models\Comment;
   use App\Notifications\OrderCommented;
-  use App\Order;
+  use App\Models\Order;
   use Illuminate\Http\Request;
 
   class OrderCommentController extends Controller
@@ -125,7 +125,7 @@ The mail is sent once and stays in the inbox; only the stored database notificat
 A pending friend request is deleted once it is accepted or declined. Its notification goes with it, so the recipient never sees a request they can no longer act on. `FriendRequest` uses `HasDependentNotifications`.
 
 ```php title="app/Http/Controllers/FriendRequestController.php"
-use App\FriendRequest;
+use App\Models\FriendRequest;
 use App\Notifications\FriendRequestReceived;
 
 public function store(User $recipient)
@@ -151,7 +151,7 @@ public function accept(FriendRequest $request)
 Show, on a project list, how many unread notifications each project still has, using the relation from `HasDependentNotifications`.
 
 ```php title="app/Http/Controllers/ProjectController.php"
-use App\Project;
+use App\Models\Project;
 
 public function index()
 {
