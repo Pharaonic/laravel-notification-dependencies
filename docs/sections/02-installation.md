@@ -5,7 +5,7 @@ The package links rows of Laravel's own `notifications` table, so that table has
 ### Requirements
 
 - PHP 8.0
-- Laravel 6.20 or newer on the 6.x line
+- Laravel 7.30 or newer on the 7.x line
 - The `notifications` table of Laravel's database channel
 
 ### Create the Notifications Table
