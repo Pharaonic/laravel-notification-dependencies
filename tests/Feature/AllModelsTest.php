@@ -1,9 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
-namespace Pharaonic\Laravel\NotificationDependencies\Tests\Feature;
-
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -11,96 +7,83 @@ use Pharaonic\Laravel\NotificationDependencies\Tests\Fixtures\Notifications\Depe
 use Pharaonic\Laravel\NotificationDependencies\Tests\Fixtures\Order;
 use Pharaonic\Laravel\NotificationDependencies\Tests\Fixtures\Tag;
 use Pharaonic\Laravel\NotificationDependencies\Tests\Fixtures\User;
-use Pharaonic\Laravel\NotificationDependencies\Tests\TestCase;
 
 /**
  * With all_models on, any model can be a dependency without the trait.
  */
-class AllModelsTest extends TestCase
-{
-    protected function getEnvironmentSetUp($app)
-    {
-        parent::getEnvironmentSetUp($app);
+beforeEach(function () {
+    config(['pharaonic.notification-dependencies.all_models' => true]);
+});
 
-        $app['config']->set('pharaonic.notification-dependencies.all_models', true);
-    }
+test('the wildcard listener is registered', function () {
+    $this->assertTrue($this->app['events']->hasWildcardListeners('eloquent.deleted: App\\Anything'));
+});
 
-    public function test_the_wildcard_listener_is_registered(): void
-    {
-        $this->assertTrue($this->app['events']->hasWildcardListeners('eloquent.deleted: App\\Anything'));
-    }
+test('turning it off after boot stops both sides', function () {
+    config(['pharaonic.notification-dependencies.all_models' => false]);
 
-    public function test_turning_it_off_after_boot_stops_both_sides(): void
-    {
-        config(['pharaonic.notification-dependencies.all_models' => false]);
+    $this->expectException(\InvalidArgumentException::class);
 
-        $this->expectException(\InvalidArgumentException::class);
+    (new DependentNotification)->dependsOn(Tag::create());
+});
 
-        (new DependentNotification)->dependsOn(Tag::create());
-    }
+test('a model without the trait can be a dependency', function () {
+    $user = User::create();
+    $tag = Tag::create();
+    $order = Order::create();
 
-    public function test_a_model_without_the_trait_can_be_a_dependency(): void
-    {
-        $user = User::create();
-        $tag = Tag::create();
-        $order = Order::create();
+    $user->notify((new DependentNotification)->dependsOn($tag, $order));
 
-        $user->notify((new DependentNotification)->dependsOn($tag, $order));
+    $this->assertSame(2, $this->dependencyCount());
 
-        $this->assertSame(2, $this->dependencyCount());
+    $tag->delete();
 
-        $tag->delete();
+    $this->assertSame(0, $this->notificationCount());
+    $this->assertSame(0, $this->dependencyCount());
+});
 
-        $this->assertSame(0, $this->notificationCount());
-        $this->assertSame(0, $this->dependencyCount());
-    }
+test('declared dependencies without the trait', function () {
+    $user = User::create();
+    $tag = Tag::create();
 
-    public function test_declared_dependencies_without_the_trait(): void
-    {
-        $user = User::create();
-        $tag = Tag::create();
+    $user->notify(new DependentNotification([$tag]));
+    $tag->delete();
 
-        $user->notify(new DependentNotification([$tag]));
-        $tag->delete();
+    $this->assertSame(0, $this->notificationCount());
+});
 
-        $this->assertSame(0, $this->notificationCount());
-    }
+test('a model with the trait is cleaned up once', function () {
+    $user = User::create();
+    $order = Order::create();
+    $user->notify((new DependentNotification)->dependsOn($order));
+    $lookups = 0;
 
-    public function test_a_model_with_the_trait_is_cleaned_up_once(): void
-    {
-        $user = User::create();
-        $order = Order::create();
-        $user->notify((new DependentNotification)->dependsOn($order));
-        $lookups = 0;
+    DB::listen(function (QueryExecuted $query) use (&$lookups) {
+        $sql = strtolower($query->sql);
 
-        DB::listen(function (QueryExecuted $query) use (&$lookups) {
-            $sql = strtolower($query->sql);
+        if (Str::startsWith($sql, 'select') && Str::contains($sql, $this->dependencyTable())) {
+            $lookups++;
+        }
+    });
 
-            if (Str::startsWith($sql, 'select') && Str::contains($sql, $this->dependencyTable())) {
-                $lookups++;
-            }
-        });
+    $order->delete();
 
-        $order->delete();
+    $this->assertSame(0, $this->notificationCount());
+    $this->assertSame(1, $lookups, 'The trait cleans up; the wildcard listener skips the model.');
+});
 
-        $this->assertSame(0, $this->notificationCount());
-        $this->assertSame(1, $lookups, 'The trait cleans up; the wildcard listener skips the model.');
-    }
+test('deleting any model costs one lookup', function () {
+    $user = User::create();
+    $user->notify((new DependentNotification)->dependsOn(Order::create()));
+    $tag = Tag::create();
+    $queries = 0;
 
-    public function test_deleting_any_model_costs_one_lookup(): void
-    {
-        $user = User::create();
-        $user->notify((new DependentNotification)->dependsOn(Order::create()));
-        $tag = Tag::create();
-        $queries = 0;
+    DB::listen(function () use (&$queries) {
+        $queries++;
+    });
 
-        DB::listen(function () use (&$queries) {
-            $queries++;
-        });
+    $tag->delete();
 
-        $tag->delete();
-
-        $this->assertSame(2, $queries, 'The tag delete and one dependency lookup.');
-        $this->assertSame(1, $this->notificationCount());
-    }
-}
+    $this->assertSame(2, $queries, 'The tag delete and one dependency lookup.');
+    $this->assertSame(1, $this->notificationCount());
+});

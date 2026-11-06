@@ -1,11 +1,6 @@
 <?php
 
-declare(strict_types=1);
-
-namespace Pharaonic\Laravel\NotificationDependencies\Tests\Feature;
-
 use Illuminate\Notifications\DatabaseNotification;
-use InvalidArgumentException;
 use Pharaonic\Laravel\NotificationDependencies\Concerns\HasDependentNotifications;
 use Pharaonic\Laravel\NotificationDependencies\Models\NotificationDependency;
 use Pharaonic\Laravel\NotificationDependencies\Tests\Fixtures\Comment;
@@ -14,149 +9,135 @@ use Pharaonic\Laravel\NotificationDependencies\Tests\Fixtures\Notifications\Plai
 use Pharaonic\Laravel\NotificationDependencies\Tests\Fixtures\Order;
 use Pharaonic\Laravel\NotificationDependencies\Tests\Fixtures\User;
 use Pharaonic\Laravel\NotificationDependencies\Tests\Fixtures\UuidModel;
-use Pharaonic\Laravel\NotificationDependencies\Tests\TestCase;
 
-class RelationsTest extends TestCase
-{
-    public function test_a_model_without_the_trait_cannot_be_a_dependency(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('uses '.HasDependentNotifications::class);
+test('a model without the trait cannot be a dependency', function () {
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('uses '.HasDependentNotifications::class);
 
-        (new DependentNotification)->dependsOn(User::create());
+    (new DependentNotification)->dependsOn(User::create());
+});
+
+test('a declared dependency without the trait removes the stored notification', function () {
+    $user = User::create();
+
+    try {
+        $user->notify(new DependentNotification([User::create()]));
+        $this->fail('A model without the trait was accepted.');
+    } catch (InvalidArgumentException $e) {
+        $this->assertStringContainsString(HasDependentNotifications::class, $e->getMessage());
     }
 
-    public function test_a_declared_dependency_without_the_trait_removes_the_stored_notification(): void
-    {
-        $user = User::create();
+    $this->assertSame(0, $this->notificationCount());
+});
 
-        try {
-            $user->notify(new DependentNotification([User::create()]));
-            $this->fail('A model without the trait was accepted.');
-        } catch (InvalidArgumentException $e) {
-            $this->assertStringContainsString(HasDependentNotifications::class, $e->getMessage());
-        }
+test('dependent notifications returns the stored rows of every recipient', function () {
+    $alice = User::create();
+    $bob = User::create();
+    $order = Order::create();
+    $other = Order::create();
 
-        $this->assertSame(0, $this->notificationCount());
-    }
+    $alice->notify((new DependentNotification)->dependsOn($order));
+    $bob->notify((new DependentNotification)->dependsOn($order, Comment::create()));
+    $alice->notify((new DependentNotification)->dependsOn($other));
+    $alice->notify(new PlainNotification);
 
-    public function test_dependent_notifications_returns_the_stored_rows_of_every_recipient(): void
-    {
-        $alice = User::create();
-        $bob = User::create();
-        $order = Order::create();
-        $other = Order::create();
+    $notifications = $order->dependentNotifications()->get();
 
-        $alice->notify((new DependentNotification)->dependsOn($order));
-        $bob->notify((new DependentNotification)->dependsOn($order, Comment::create()));
-        $alice->notify((new DependentNotification)->dependsOn($other));
-        $alice->notify(new PlainNotification);
+    $this->assertCount(2, $notifications);
+    $this->assertContainsOnlyInstancesOf(DatabaseNotification::class, $notifications);
+    $this->assertEqualsCanonicalizing(
+        [$alice->getKey(), $bob->getKey()],
+        $notifications->pluck('notifiable_id')->map(function ($id) {
+            return (int) $id;
+        })->all()
+    );
+    $this->assertCount(1, $other->dependentNotifications);
+});
 
-        $notifications = $order->dependentNotifications()->get();
+test('dependent notifications can be eager loaded', function () {
+    $user = User::create();
+    [$first, $second] = [Order::create(), Order::create()];
+    $user->notify((new DependentNotification)->dependsOn($first, $second));
+    $user->notify((new DependentNotification)->dependsOn($second));
 
-        $this->assertCount(2, $notifications);
-        $this->assertContainsOnlyInstancesOf(DatabaseNotification::class, $notifications);
-        $this->assertEqualsCanonicalizing(
-            [$alice->getKey(), $bob->getKey()],
-            $notifications->pluck('notifiable_id')->map(function ($id) {
-                return (int) $id;
-            })->all()
-        );
-        $this->assertCount(1, $other->dependentNotifications);
-    }
+    $orders = Order::query()->with('dependentNotifications')->orderBy('id')->get();
 
-    public function test_dependent_notifications_can_be_eager_loaded(): void
-    {
-        $user = User::create();
-        [$first, $second] = [Order::create(), Order::create()];
-        $user->notify((new DependentNotification)->dependsOn($first, $second));
-        $user->notify((new DependentNotification)->dependsOn($second));
+    $this->assertSame([1, 2], $orders->map(function (Order $order) {
+        return $order->dependentNotifications->count();
+    })->all());
+});
 
-        $orders = Order::query()->with('dependentNotifications')->orderBy('id')->get();
+test('has where has and with count', function () {
+    $user = User::create();
+    [$first, $second, $none] = [Order::create(), Order::create(), Order::create()];
+    $user->notify((new DependentNotification)->dependsOn($first, $second));
+    $user->notify((new DependentNotification)->dependsOn($second));
 
-        $this->assertSame([1, 2], $orders->map(function (Order $order) {
-            return $order->dependentNotifications->count();
-        })->all());
-    }
+    $this->assertSame([$first->getKey(), $second->getKey()], Order::query()->has('dependentNotifications')->orderBy('id')->pluck('id')->all());
+    $this->assertSame([$second->getKey()], Order::query()->has('dependentNotifications', '>', 1)->pluck('id')->all());
+    $this->assertSame([$none->getKey()], Order::query()->doesntHave('dependentNotifications')->pluck('id')->all());
+    $onlySecond = $second->dependentNotifications()->get()->first(function ($notification) use ($first) {
+        return ! $first->dependentNotifications->contains($notification);
+    });
+    $this->assertNotNull($onlySecond);
+    $this->assertSame([$second->getKey()], Order::query()->whereHas('dependentNotifications', function ($query) use ($onlySecond) {
+        $query->where('notifications.id', $onlySecond->getKey());
+    })->pluck('id')->all());
+    $this->assertSame([1, 2, 0], Order::query()->withCount('dependentNotifications')->orderBy('id')->get()->map(function (Order $order) {
+        return (int) $order->getAttribute('dependent_notifications_count');
+    })->all());
+});
 
-    public function test_has_where_has_and_with_count(): void
-    {
-        $user = User::create();
-        [$first, $second, $none] = [Order::create(), Order::create(), Order::create()];
-        $user->notify((new DependentNotification)->dependsOn($first, $second));
-        $user->notify((new DependentNotification)->dependsOn($second));
+test('where has with uuid keys', function () {
+    $user = User::create();
+    [$with, $without] = [UuidModel::create(), UuidModel::create()];
+    $user->notify((new DependentNotification)->dependsOn($with));
 
-        $this->assertSame([$first->getKey(), $second->getKey()], Order::query()->has('dependentNotifications')->orderBy('id')->pluck('id')->all());
-        $this->assertSame([$second->getKey()], Order::query()->has('dependentNotifications', '>', 1)->pluck('id')->all());
-        $this->assertSame([$none->getKey()], Order::query()->doesntHave('dependentNotifications')->pluck('id')->all());
-        $onlySecond = $second->dependentNotifications()->get()->first(function ($notification) use ($first) {
-            return ! $first->dependentNotifications->contains($notification);
-        });
-        $this->assertNotNull($onlySecond);
-        $this->assertSame([$second->getKey()], Order::query()->whereHas('dependentNotifications', function ($query) use ($onlySecond) {
-            $query->where('notifications.id', $onlySecond->getKey());
-        })->pluck('id')->all());
-        $this->assertSame([1, 2, 0], Order::query()->withCount('dependentNotifications')->orderBy('id')->get()->map(function (Order $order) {
-            return (int) $order->getAttribute('dependent_notifications_count');
-        })->all());
-    }
+    $this->assertSame([$with->getKey()], UuidModel::query()->whereHas('dependentNotifications')->pluck('id')->all());
+    $this->assertNotSame($with->getKey(), $without->getKey());
+});
 
-    public function test_where_has_with_uuid_keys(): void
-    {
-        $user = User::create();
-        [$with, $without] = [UuidModel::create(), UuidModel::create()];
-        $user->notify((new DependentNotification)->dependsOn($with));
+test('dependent notifications with string keys', function () {
+    $user = User::create();
+    $model = UuidModel::create();
+    $user->notify((new DependentNotification)->dependsOn($model));
 
-        $this->assertSame([$with->getKey()], UuidModel::query()->whereHas('dependentNotifications')->pluck('id')->all());
-        $this->assertNotSame($with->getKey(), $without->getKey());
-    }
+    $this->assertCount(1, $model->dependentNotifications);
+});
 
-    public function test_dependent_notifications_with_string_keys(): void
-    {
-        $user = User::create();
-        $model = UuidModel::create();
-        $user->notify((new DependentNotification)->dependsOn($model));
+test('the dependency model reaches the notification and the model', function () {
+    $user = User::create();
+    $order = Order::create();
+    $user->notify((new DependentNotification)->dependsOn($order));
 
-        $this->assertCount(1, $model->dependentNotifications);
-    }
+    $link = NotificationDependency::query()->firstOrFail();
 
-    public function test_the_dependency_model_reaches_the_notification_and_the_model(): void
-    {
-        $user = User::create();
-        $order = Order::create();
-        $user->notify((new DependentNotification)->dependsOn($order));
+    $this->assertSame('notification_dependencies', $link->getTable());
+    $this->assertInstanceOf(DatabaseNotification::class, $link->notification);
+    $this->assertSame($user->notifications()->value('id'), $link->notification->getKey());
+    $this->assertInstanceOf(Order::class, $link->dependable);
+    $this->assertTrue($link->dependable->is($order));
+});
 
-        $link = NotificationDependency::query()->firstOrFail();
+test('the where dependable scope returns the links of one model', function () {
+    $user = User::create();
+    $order = Order::create();
+    $comment = Comment::create();
+    $user->notify((new DependentNotification)->dependsOn($order, $comment));
+    $user->notify((new DependentNotification)->dependsOn($order));
 
-        $this->assertSame('notification_dependencies', $link->getTable());
-        $this->assertInstanceOf(DatabaseNotification::class, $link->notification);
-        $this->assertSame($user->notifications()->value('id'), $link->notification->getKey());
-        $this->assertInstanceOf(Order::class, $link->dependable);
-        $this->assertTrue($link->dependable->is($order));
-    }
+    $links = NotificationDependency::whereDependable($order)->with('notification')->get();
 
-    public function test_the_where_dependable_scope_returns_the_links_of_one_model(): void
-    {
-        $user = User::create();
-        $order = Order::create();
-        $comment = Comment::create();
-        $user->notify((new DependentNotification)->dependsOn($order, $comment));
-        $user->notify((new DependentNotification)->dependsOn($order));
+    $this->assertCount(2, $links);
+    $this->assertSame([Order::class, Order::class], $links->pluck('dependable_type')->all());
+    $this->assertContainsOnlyInstancesOf(DatabaseNotification::class, $links->pluck('notification'));
+    $this->assertCount(1, NotificationDependency::whereDependable($comment)->get());
+    $this->assertCount(0, NotificationDependency::whereDependable(new Order)->get());
+});
 
-        $links = NotificationDependency::whereDependable($order)->with('notification')->get();
+test('the dependency model fills only its link columns', function () {
+    $model = new NotificationDependency;
 
-        $this->assertCount(2, $links);
-        $this->assertSame([Order::class, Order::class], $links->pluck('dependable_type')->all());
-        $this->assertContainsOnlyInstancesOf(DatabaseNotification::class, $links->pluck('notification'));
-        $this->assertCount(1, NotificationDependency::whereDependable($comment)->get());
-        $this->assertCount(0, NotificationDependency::whereDependable(new Order)->get());
-    }
-
-    public function test_the_dependency_model_fills_only_its_link_columns(): void
-    {
-        $model = new NotificationDependency;
-
-        $this->assertSame(['notification_id', 'dependable_type', 'dependable_id'], $model->getFillable());
-        $this->assertFalse($model->isFillable('id'));
-    }
-}
+    $this->assertSame(['notification_id', 'dependable_type', 'dependable_id'], $model->getFillable());
+    $this->assertFalse($model->isFillable('id'));
+});
