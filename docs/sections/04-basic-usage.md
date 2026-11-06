@@ -6,8 +6,8 @@ Using the package takes two traits: one on the models a notification can depend 
 
 Add `HasDependentNotifications` to every model a notification can depend on:
 
-```php title="app/Order.php"
-namespace App;
+```php title="app/Models/Order.php"
+namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Pharaonic\Laravel\NotificationDependencies\Concerns\HasDependentNotifications;

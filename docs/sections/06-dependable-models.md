@@ -2,7 +2,7 @@
 
 `HasDependentNotifications` does two things for a model: it deletes the dependent notifications when the model is deleted, and it adds the `dependentNotifications()` relation.
 
-```php title="app/Order.php"
+```php title="app/Models/Order.php"
 use Illuminate\Database\Eloquent\Model;
 use Pharaonic\Laravel\NotificationDependencies\Concerns\HasDependentNotifications;
 

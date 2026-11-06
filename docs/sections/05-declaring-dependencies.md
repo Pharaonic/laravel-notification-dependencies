@@ -26,8 +26,8 @@ $notification->dependsOn(...$optionalDependencies);
 Override `dependencies()` to declare the models the notification always depends on. They are added to whatever `dependsOn()` received, without duplicates:
 
 ```php title="app/Notifications/OrderCommented.php"
-use App\Comment;
-use App\Order;
+use App\Models\Comment;
+use App\Models\Order;
 use Illuminate\Notifications\Notification;
 use Pharaonic\Laravel\NotificationDependencies\Concerns\HasDependencies;
 

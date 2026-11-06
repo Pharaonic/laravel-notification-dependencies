@@ -3,7 +3,7 @@
 Dependencies work the same for notifications that implement `ShouldQueue`.
 
 ```php title="app/Notifications/OrderShipped.php"
-use App\Order;
+use App\Models\Order;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
