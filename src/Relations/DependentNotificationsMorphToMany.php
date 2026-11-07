@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Pharaonic\Laravel\NotificationDependencies\Relations;
 
+use Illuminate\Contracts\Database\Query\Expression as ExpressionContract;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
+use Illuminate\Database\Grammar;
 use Illuminate\Notifications\DatabaseNotification;
 
 /**
@@ -98,8 +100,6 @@ final class DependentNotificationsMorphToMany extends MorphToMany
     public function getRelationExistenceQuery(Builder $query, Builder $parentQuery, $columns = ['*'])
     {
         $base = $query->getQuery();
-        $grammar = $base->getGrammar();
-        $parentKey = $grammar->wrap($this->getQualifiedParentKeyName());
         $connection = $base->getConnection();
         $driver = $connection instanceof Connection ? $connection->getDriverName() : null;
 
@@ -107,29 +107,40 @@ final class DependentNotificationsMorphToMany extends MorphToMany
             case 'mysql':
                 // CONCAT() takes the collation of the dependency column, so a
                 // connection collation that differs from the table's cannot fail.
-                $parentKeyAsString = 'concat('.$parentKey.')';
+                $template = 'concat(%s)';
 
                 break;
             case 'pgsql':
-                $parentKeyAsString = 'cast('.$parentKey.' as varchar)';
+                $template = 'cast(%s as varchar)';
 
                 break;
             case 'sqlite':
-                $parentKeyAsString = 'cast('.$parentKey.' as text)';
+                $template = 'cast(%s as text)';
 
                 break;
             default:
-                $parentKeyAsString = null;
+                $template = null;
         }
 
-        if ($parentKeyAsString === null || $parentQuery->getQuery()->from == $base->from) {
+        if ($template === null || $parentQuery->getQuery()->from == $base->from) {
             return parent::getRelationExistenceQuery($query, $parentQuery, $columns);
         }
+
+        // The grammar wraps the column when the query is compiled.
+        $parentKeyAsString = new class($template, $this->getQualifiedParentKeyName()) implements ExpressionContract
+        {
+            public function __construct(private string $template, private string $column) {}
+
+            public function getValue(Grammar $grammar): string
+            {
+                return sprintf($this->template, $grammar->wrap($this->column));
+            }
+        };
 
         $this->performJoin($query);
 
         $query->select($columns);
-        $query->whereRaw($parentKeyAsString.' = '.$grammar->wrap($this->getExistenceCompareKey()));
+        $query->whereColumn($parentKeyAsString, '=', $this->getExistenceCompareKey());
         $query->where($this->table.'.'.$this->morphType, $this->morphClass);
 
         return $query;
