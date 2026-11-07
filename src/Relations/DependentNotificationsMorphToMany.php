@@ -18,7 +18,8 @@ use Illuminate\Notifications\DatabaseNotification;
  * The dependency table stores ids as strings, so integer, UUID and ULID keys
  * can share it. This relation compares the parent key as a string too:
  * PostgreSQL refuses to compare a varchar column with a bigint one, and on
- * MySQL the string comparison is what lets the dependable_id index be used.
+ * MySQL and MariaDB the string comparison is what lets the dependable_id
+ * index be used.
  *
  * @internal
  *
@@ -105,6 +106,7 @@ final class DependentNotificationsMorphToMany extends MorphToMany
 
         switch ($driver) {
             case 'mysql':
+            case 'mariadb':
                 // CONCAT() takes the collation of the dependency column, so a
                 // connection collation that differs from the table's cannot fail.
                 $template = 'concat(%s)';

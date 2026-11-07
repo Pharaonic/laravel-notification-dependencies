@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Notifications\DatabaseNotification;
+use Illuminate\Support\Facades\DB;
 use Pharaonic\Laravel\NotificationDependencies\Concerns\HasDependentNotifications;
 use Pharaonic\Laravel\NotificationDependencies\Models\NotificationDependency;
 use Pharaonic\Laravel\NotificationDependencies\Tests\Fixtures\Comment;
@@ -141,3 +142,20 @@ test('the dependency model fills only its link columns', function () {
     $this->assertSame(['notification_id', 'dependable_type', 'dependable_id'], $model->getFillable());
     $this->assertFalse($model->isFillable('id'));
 });
+
+test('the existence query compares the key as a string on mysql and mariadb', function (string $driver) {
+    // Only compiled, never run: no database server is needed.
+    config(["database.connections.{$driver}_compiled" => [
+        'driver' => $driver,
+        'host' => '127.0.0.1',
+        'database' => 'compiled',
+        'username' => 'compiled',
+        'password' => '',
+        'prefix' => '',
+    ]]);
+    DB::setDefaultConnection("{$driver}_compiled");
+
+    $sql = Order::query()->whereHas('dependentNotifications')->toSql();
+
+    $this->assertStringContainsString('concat(`orders`.`id`) = `'.dependencyTable().'`.`dependable_id`', $sql);
+})->with(['mysql', 'mariadb']);
