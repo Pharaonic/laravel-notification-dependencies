@@ -29,7 +29,3 @@ A `subject_type` and `subject_id` pair on `notifications` would allow only one d
 - **One identity per type and key.** A link stores the morph type and key only, so the same model class on two connections (a database per tenant, for example) shares links: deleting `Order #1` on one connection deletes the notifications of `Order #1` on the other. Dependencies on another connection work otherwise, but the cleanup is not atomic across connections, and the lock only covers dependencies on the notifications connection.
 - **A short window.** The notification row exists for a moment before its links do. A notification read in that window, or a dependency deleted on another connection at the same time, is not covered by a transaction across both.
 - **SQLite** enforces the cascade only with `foreign_key_constraints` enabled on the connection. The package deletes links explicitly when it deletes notifications itself.
-
-:::warning Laravel 11
-Laravel 11 no longer receives security fixes upstream. Plan an upgrade to a supported Laravel line.
-:::
