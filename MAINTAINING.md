@@ -36,7 +36,7 @@ Configuration keys (`pharaonic.notification-dependencies.*`), publish tags, and 
 - Identity rules live in `NotificationDependenciesManager::resolve()` only: `identify()` throws its reason, `identityOf()` returns null, so linking and purging never disagree.
 - Deletion uses each model's own `deleted` event through the trait. An `eloquent.deleted: *` wildcard is always registered and reads `all_models` on each deletion, like `dependsOn()`, so a change after boot applies to both; it skips models with the trait so nothing is purged twice. Trait checks are cached per class. Laravel 6 fires `deleted` for `forceDelete()` with `isForceDeleting()` true; there is no reliance on `forceDeleted`.
 - Writes and deletes are set-based, at most 500 ids per statement, and never hydrate notifications.
-- Ids are stored as strings (`varchar(191)`), so `DependentNotificationsMorphToMany` binds and compares the parent key as a string in lazy loads, eager loads, `has()`, `whereHas()`, and `withCount()`: PostgreSQL refuses `varchar = integer`. MySQL uses `CONCAT()` rather than `CAST()`, which fails when the connection collation differs from the table's.
+- Ids are stored as strings (`varchar(191)`), so `DependentNotificationsMorphToMany` binds and compares the parent key as a string in lazy loads, eager loads, `has()`, `whereHas()`, and `withCount()`: PostgreSQL refuses `varchar = integer`. MySQL and MariaDB use `CONCAT()` rather than `CAST()`, which fails when the connection collation differs from the table's.
 - `phpstan.neon.dist` also analyses `tests/Fixtures`: PHPStan analyses a trait only through a class that uses it.
 - `databases.yml` runs the suite against MySQL and PostgreSQL through the `DEPENDENCIES_DB*` environment variables.
 
