@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Queue\Console\WorkCommand;
 use Illuminate\Support\Facades\DB;
 use Pharaonic\Laravel\NotificationDependencies\Tests\Fixtures\Comment;
 use Pharaonic\Laravel\NotificationDependencies\Tests\Fixtures\Notifications\QueuedNotification;
@@ -101,6 +102,11 @@ test('each queued recipient gets its own links', function () {
 
 function workQueue(): void
 {
+    // queue:work registers its failed-job logger once per process; older
+    // Testbench releases do not reset that between tests, so the logger
+    // would keep writing to the first test's application.
+    WorkCommand::flushState();
+
     app(Kernel::class)->call('queue:work', [
         'connection' => 'database',
         '--once' => true,

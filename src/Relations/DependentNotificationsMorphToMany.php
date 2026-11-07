@@ -6,7 +6,9 @@ namespace Pharaonic\Laravel\NotificationDependencies\Relations;
 
 use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
+use Illuminate\Notifications\DatabaseNotification;
 
 /**
  * The dependentNotifications() relation of a dependable model.
@@ -17,9 +19,34 @@ use Illuminate\Database\Eloquent\Relations\MorphToMany;
  * MySQL the string comparison is what lets the dependable_id index be used.
  *
  * @internal
+ *
+ * @template TDeclaringModel of Model
+ *
+ * @extends MorphToMany<DatabaseNotification, TDeclaringModel>
  */
 final class DependentNotificationsMorphToMany extends MorphToMany
 {
+    /**
+     * Declared here so PHPStan 2.1.0, the line's lowest, infers TDeclaringModel
+     * from `new DependentNotificationsMorphToMany(...)`: it does not read the
+     * inherited constructor.
+     *
+     * @param  Builder<DatabaseNotification>  $query
+     * @param  TDeclaringModel  $parent
+     * @param  string  $name
+     * @param  string  $table
+     * @param  string  $foreignPivotKey
+     * @param  string  $relatedPivotKey
+     * @param  string  $parentKey
+     * @param  string  $relatedKey
+     * @param  string|null  $relationName
+     * @param  bool  $inverse
+     */
+    public function __construct(Builder $query, Model $parent, $name, $table, $foreignPivotKey, $relatedPivotKey, $parentKey, $relatedKey, $relationName = null, $inverse = false)
+    {
+        parent::__construct($query, $parent, $name, $table, $foreignPivotKey, $relatedPivotKey, $parentKey, $relatedKey, $relationName, $inverse);
+    }
+
     /**
      * Constrain a lazy load to the parent's key, as a string.
      *
@@ -41,7 +68,7 @@ final class DependentNotificationsMorphToMany extends MorphToMany
     /**
      * Constrain eager loading to the parents' keys, as strings.
      *
-     * @param  array<int, \Illuminate\Database\Eloquent\Model>  $models
+     * @param  array<int, TDeclaringModel>  $models
      * @return void
      */
     public function addEagerConstraints(array $models)
@@ -63,8 +90,10 @@ final class DependentNotificationsMorphToMany extends MorphToMany
     /**
      * The subquery behind has(), whereHas() and withCount().
      *
+     * @param  Builder<DatabaseNotification>  $query
+     * @param  Builder<TDeclaringModel>  $parentQuery
      * @param  mixed  $columns
-     * @return Builder
+     * @return Builder<DatabaseNotification>
      */
     public function getRelationExistenceQuery(Builder $query, Builder $parentQuery, $columns = ['*'])
     {
