@@ -6,6 +6,7 @@ namespace Pharaonic\Laravel\NotificationDependencies\Concerns;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
+use Illuminate\Notifications\DatabaseNotification;
 use Pharaonic\Laravel\NotificationDependencies\Models\NotificationDependency;
 use Pharaonic\Laravel\NotificationDependencies\Relations\DependentNotificationsMorphToMany;
 use Pharaonic\Laravel\NotificationDependencies\Support\NotificationDependenciesManager;
@@ -31,6 +32,8 @@ trait HasDependentNotifications
 
     /**
      * The stored database notifications that depend on this model.
+     *
+     * @return MorphToMany<DatabaseNotification, $this>
      */
     public function dependentNotifications(): MorphToMany
     {

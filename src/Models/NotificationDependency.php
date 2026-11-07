@@ -56,6 +56,8 @@ class NotificationDependency extends Model
 
     /**
      * The stored database notification.
+     *
+     * @return BelongsTo<DatabaseNotification, $this>
      */
     public function notification(): BelongsTo
     {
@@ -64,6 +66,8 @@ class NotificationDependency extends Model
 
     /**
      * The model the notification depends on.
+     *
+     * @return MorphTo<Model, $this>
      */
     public function dependable(): MorphTo
     {
@@ -72,6 +76,8 @@ class NotificationDependency extends Model
 
     /**
      * Only the links to this model.
+     *
+     * @param  Builder<NotificationDependency>  $query
      */
     public function scopeWhereDependable(Builder $query, Model $model): void
     {
