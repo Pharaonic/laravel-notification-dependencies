@@ -19,7 +19,7 @@ Deleting any dependency deletes every stored notification that depends on it, fo
 One notification can depend on many models of different types, and is deleted when the first of them goes.
 
 ### Queue Safe {icon="clock"}
-Only each model's type and key travel through the queue, and a dependency deleted while the job waits still deletes the notification.
+Only each model's type and key travel through the queue, and a dependency deleted while the job waits cancels the notification on every channel.
 
 ### Soft Delete Aware {icon="switch"}
 Choose whether a soft delete removes the notifications or only a force delete does.
@@ -29,5 +29,5 @@ Every dependable model gets a dependentNotifications relation you can load, coun
 :::
 
 :::info Quick Tip
-Only the database channel is affected. Mail, broadcast, and every other channel of the same notification are sent exactly as before.
+A notification whose dependency is already gone when it is sent is not sent on any channel. Once sent, only the database channel is affected: a mail or broadcast that went out stays sent.
 :::
