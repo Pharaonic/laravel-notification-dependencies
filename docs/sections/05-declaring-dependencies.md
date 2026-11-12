@@ -55,7 +55,7 @@ class OrderCommented extends Notification
 }
 ```
 
-`dependencies()` is read when the database channel stores the notification, so it sees the models the notification holds at that moment. It must return an array of Eloquent models.
+`dependencies()` is read before the notification is sent on each channel and again when the database channel stores it, so it sees the models the notification holds at that moment. It must return an array of Eloquent models.
 
 ### Calling dependsOn() in the Constructor
 
