@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here.
 
+## 10.1.0 - Unreleased
+
+### Changed
+
+- A notification whose dependency no longer exists when it is sent is not sent on any channel. Before, only its database row was deleted after it was stored, and mail, broadcast, and other channels were still sent. This covers a dependency deleted while a queued notification waited, a row deleted without a model event, and a soft-deleted dependency while `delete_on_soft_delete` is `true`.
+
+### Behavior Changes from 10.0.x
+
+- Every channel of such a notification is skipped through a `NotificationSending` listener that returns `false`. Notifications without `HasDependencies` are not checked.
+- `dependencies()` is also read before each channel sends, so an invalid return value throws before any channel sends.
+- Sending a notification with dependencies runs one more query per notifiable and channel.
+
 ## 10.0.0 - 2026-11-07
 
 First release of the Laravel 10 line, built from 9.0.0.
