@@ -9,15 +9,17 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\Config;
 use InvalidArgumentException;
+use Pharaonic\Laravel\NotificationDependencies\Actions\CheckDependencies;
 use Pharaonic\Laravel\NotificationDependencies\Actions\LinkDependencies;
 use Pharaonic\Laravel\NotificationDependencies\Actions\PurgeDependentNotifications;
 use Pharaonic\Laravel\NotificationDependencies\Concerns\HasDependentNotifications;
 use Pharaonic\Laravel\NotificationDependencies\Models\NotificationDependency;
+use ReflectionProperty;
 use RuntimeException;
 
 /**
  * The entry point of the package: identifies dependency models, and hands
- * linking and purging to their actions. Everything the actions share lives
+ * checking, linking, and purging to their actions. Everything the actions share lives
  * here.
  *
  * A model is identified by its morph type and primary key, which is what the
@@ -94,6 +96,63 @@ final class NotificationDependenciesManager
         $identity = self::resolve($model);
 
         return is_array($identity) ? $identity : null;
+    }
+
+    /**
+     * The dependencies of a notification using HasDependencies: those
+     * declared by dependencies(), then those added with dependsOn(), without
+     * duplicates.
+     *
+     * @return array<string, Identity>
+     *
+     * @throws InvalidArgumentException when dependencies() returns anything
+     *                                  but models that can be dependencies
+     */
+    public static function identitiesOf(object $notification): array
+    {
+        $identities = [];
+
+        $declared = method_exists($notification, 'dependencies') ? $notification->dependencies() : [];
+
+        if (! is_array($declared)) {
+            throw new InvalidArgumentException(sprintf('%s::dependencies() must return an array of models.', get_class($notification)));
+        }
+
+        foreach ($declared as $model) {
+            if (! $model instanceof Model) {
+                throw new InvalidArgumentException(sprintf(
+                    '%s::dependencies() must only return Eloquent models, got [%s].',
+                    get_class($notification),
+                    get_debug_type($model)
+                ));
+            }
+
+            $identity = self::identify($model);
+            $identities[$identity['signature']] = $identity;
+        }
+
+        $property = new ReflectionProperty($notification, 'notificationDependencies');
+        $property->setAccessible(true);
+        $added = $property->getValue($notification);
+
+        foreach (is_array($added) ? $added : [] as $identity) {
+            if (self::isIdentity($identity) && ! isset($identities[$identity['signature']])) {
+                $identities[$identity['signature']] = $identity;
+            }
+        }
+
+        return $identities;
+    }
+
+    /**
+     * Whether every dependency still exists.
+     *
+     * @param  array<string, Identity>  $identities
+     * @param  bool  $lock  read the rows for update, inside the caller's transaction
+     */
+    public static function dependenciesExist(array $identities, bool $lock = false): bool
+    {
+        return (new CheckDependencies)($identities, $lock);
     }
 
     /**
@@ -277,6 +336,26 @@ final class NotificationDependenciesManager
             'connection' => $connection,
             'signature' => serialize([$type, $key]),
         ];
+    }
+
+    /**
+     * @param  mixed  $value
+     *
+     * @phpstan-assert-if-true Identity $value
+     */
+    private static function isIdentity($value): bool
+    {
+        if (! is_array($value)) {
+            return false;
+        }
+
+        foreach (['type', 'key', 'class', 'connection', 'signature'] as $field) {
+            if (! isset($value[$field]) || ! is_string($value[$field])) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
