@@ -118,7 +118,7 @@ A customer is notified of each new comment on their order. The notification goes
   }
   ```
 
-The mail is sent once and stays in the inbox; only the stored database notification is removed.
+The mail is sent once and stays in the inbox; only the stored database notification is removed. When the notification is queued and the comment is deleted before the worker runs, neither the mail nor the database notification is sent.
 
 ### 2. A Friend Request That Is Answered
 
