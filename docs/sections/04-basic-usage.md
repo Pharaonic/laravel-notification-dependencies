@@ -75,7 +75,7 @@ $order->delete(); // deletes the notification of every watcher
 ```
 
 :::info What is untouched
-The dependency models themselves are never changed, and neither are the other channels of the notification. Only rows stored by the `database` channel are linked and deleted.
+The dependency models themselves are never changed. Only rows stored by the `database` channel are linked and deleted; a mail or broadcast already sent stays sent. A notification whose dependency is already gone is not sent on any channel.
 :::
 
 A notification without `HasDependencies`, or with the trait but without any dependency, is stored exactly as Laravel stores it.

@@ -40,7 +40,9 @@ class OrderShipped extends Notification implements ShouldQueue
 
 ### A Dependency Deleted While the Job Waits
 
-When the worker stores the notification, the package checks that every dependency still exists. If one was deleted in the meantime, the new notification is deleted right after the database channel stores it. A dependency whose class was renamed or removed since it was queued counts as deleted too.
+Before the worker sends the notification, the package checks that every dependency still exists. If one was deleted in the meantime, the notification is not sent on any channel: no mail, no broadcast, no database row. Laravel queues one job per channel, and each job is checked when it runs. A dependency whose class was renamed or removed since it was queued counts as deleted too.
+
+A dependency deleted between that check and the database insert is caught when the row is linked: the new row is deleted right away. A channel that already sent in that moment stays sent.
 
 ### Notifications That Keep Their Own Models
 

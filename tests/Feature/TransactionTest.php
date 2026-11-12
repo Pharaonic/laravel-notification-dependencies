@@ -138,11 +138,13 @@ class TransactionTest extends TestCase
             return Str::startsWith($sql, 'select') && Str::contains($sql, 'orders');
         }));
 
-        $this->assertCount(1, $check);
+        // The check before sending, then the one after linking.
+        $this->assertCount(2, $check);
+        $this->assertStringNotContainsString('for update', $check[0]);
 
         if (DB::connection()->getDriverName() !== 'sqlite') {
             // A concurrent deletion waits for the links to be committed.
-            $this->assertStringContainsString('for update', $check[0]);
+            $this->assertStringContainsString('for update', $check[1]);
         }
     }
 

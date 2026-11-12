@@ -2,6 +2,10 @@
 
 You don't need this section to use the package, but it explains the guarantees and the limits.
 
+### Sending
+
+Laravel dispatches `NotificationSending` before each channel sends, once per notifiable and channel. A synchronous listener reads the dependency rows; when one is gone, it returns `false` and Laravel skips that channel. Every channel of the notification is skipped this way, queued or not. A notification without `HasDependencies` is never checked, and a notification whose dependencies all exist is left to your other `NotificationSending` listeners.
+
 ### Linking
 
 Laravel's database channel stores the notification and returns the row, then dispatches `NotificationSent`. A synchronous listener links that row to its dependencies:
