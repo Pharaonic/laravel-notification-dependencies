@@ -43,9 +43,13 @@ Order::where('status', 'cancelled')->get()->each->delete();
 
 Links store the morph type at the moment the notification is sent. When you add or change a morph map alias later, older links still hold the previous type and no longer match the model. Update `dependable_type` in the dependency table to the new alias when you change the morph map.
 
+### The notification is never sent
+
+One of its dependencies no longer existed when the notification was sent, so no channel sent it. This happens with queued notifications whose dependency was deleted while the job waited, with dependencies deleted without a model event (a query builder delete, for example), and with dependencies that are already soft deleted while `delete_on_soft_delete` is `true`.
+
 ### The notification disappears right after it is sent
 
-One of its dependencies no longer existed when the notification was stored, so it was deleted. This happens with queued notifications whose dependency was deleted while the job waited, and with dependencies that are already soft deleted while `delete_on_soft_delete` is `true`.
+Its dependency was deleted between the check before sending and the database insert, so the new row was deleted when it was linked.
 
 ### "The notification was stored on the [...] connection"
 

@@ -16,7 +16,7 @@ items:
     text: One notification can depend on several models of different types, with integer, UUID, or ULID keys.
   - icon: clock
     title: Queue Safe
-    text: Only identities travel through the queue, and a dependency deleted while the job waits still wins.
+    text: Only identities travel through the queue, and a dependency deleted while the job waits cancels every channel.
   - icon: switch
     title: Soft Delete Aware
     text: Remove notifications on soft delete, or keep them until `forceDelete()` with one setting.
