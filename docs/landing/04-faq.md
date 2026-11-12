@@ -20,11 +20,11 @@ The latest release requires {package.requiresText}.
 
 ## Does it delete mail or broadcast notifications?
 
-No. Only rows stored by the `database` channel are linked and deleted. Every other channel of the same notification is sent exactly as before.
+No. Only rows stored by the `database` channel are linked and deleted, so a mail or broadcast that was sent stays sent. A notification whose dependency is already gone when it is sent is not sent on any channel.
 
 ## Does it work with queued notifications?
 
-Yes. `dependsOn()` keeps only each model's type and key, so a queued notification carries no extra models, and a dependency deleted while the job waits still deletes the notification once it is stored.
+Yes. `dependsOn()` keeps only each model's type and key, so a queued notification carries no extra models, and a dependency deleted while the job waits cancels the notification on every channel.
 
 ## What happens on a soft delete?
 
