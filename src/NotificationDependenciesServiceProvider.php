@@ -6,8 +6,10 @@ namespace Pharaonic\Laravel\NotificationDependencies;
 
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Notifications\Events\NotificationSending;
 use Illuminate\Notifications\Events\NotificationSent;
 use Illuminate\Support\ServiceProvider;
+use Pharaonic\Laravel\NotificationDependencies\Listeners\CancelNotificationsWithDeletedDependencies;
 use Pharaonic\Laravel\NotificationDependencies\Listeners\RegisterNotificationDependencies;
 use Pharaonic\Laravel\NotificationDependencies\Support\NotificationDependenciesManager;
 
@@ -20,6 +22,7 @@ final class NotificationDependenciesServiceProvider extends ServiceProvider
 
     public function boot(Dispatcher $events): void
     {
+        $events->listen(NotificationSending::class, CancelNotificationsWithDeletedDependencies::class);
         $events->listen(NotificationSent::class, RegisterNotificationDependencies::class);
 
         // Models with HasDependentNotifications clean up through their own
